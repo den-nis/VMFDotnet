@@ -13,22 +13,21 @@ namespace VMFDotNET.ObjectNotation
 	{
 		public string Value { get; private set; }
 		private SonNodeType? _lastNodeType;
-		private readonly TextReader _reader;
+		private readonly TrackedTextReader _textReader;
+
+		public SonReader(Stream reader)
+		{
+			_textReader = new TrackedTextReader(new StreamReader(reader));
+		}
 
 		public SonReader(TextReader reader)
 		{
-			_reader = reader;
-		}
-
-		public SonReader(Stream stream)
-		{
-			_reader = new StreamReader(stream);
+			_textReader = new TrackedTextReader(reader);
 		}
 
 		public SonNodeType Read()
 		{
 			SkipWhiteSpace();
-
 			var next = GetNextExpectedNodeType();
 
 			switch (next)
@@ -53,7 +52,7 @@ namespace VMFDotNET.ObjectNotation
 			if (_lastNodeType == SonNodeType.PropertyName) return SonNodeType.PropertyValue;
 			if (_lastNodeType == SonNodeType.ObjectHeader) return SonNodeType.ObjectStart;
 
-			int peek = _reader.Peek();
+			int peek = _textReader.Peek();
 
 			if (peek == -1)   return SonNodeType.DocumentEnd;
 			if (peek == '\"') return SonNodeType.PropertyName;
@@ -62,7 +61,7 @@ namespace VMFDotNET.ObjectNotation
 
 			if (_lastNodeType != SonNodeType.ObjectHeader) return SonNodeType.ObjectHeader;
 
-			throw UnexpectedCharacter((char)peek);
+			throw UnexpectedCharacter((char)_textReader.Read());
 		}
 
 		private void ReadObjectEnd()
@@ -80,7 +79,7 @@ namespace VMFDotNET.ObjectNotation
 			Value = ReadUntil((peek) =>
 			{
 				if (char.IsNumber(peek))
-					throw UnexpectedCharacter(peek);
+					throw UnexpectedCharacter((char)_textReader.Read());
 
 				if (peek == '{' || char.IsControl(peek) || char.IsWhiteSpace(peek))
 					return true;
@@ -106,10 +105,9 @@ namespace VMFDotNET.ObjectNotation
 		{
 			StringBuilder builder = new();
 
-			int peek;
 			while (true)
 			{
-				peek = _reader.Peek();
+				int peek = _textReader.Peek();
 
 				if (peek == -1)
 					throw UnexpectedEndOfFile();
@@ -118,20 +116,20 @@ namespace VMFDotNET.ObjectNotation
 					break;
 
 				builder.Append((char)peek);
-				_reader.Read();
+				_textReader.Read();
 			}
 
 			var result = builder.ToString();
 
 			if (result.Length == 0)
-				throw UnexpectedCharacter((char)peek);
+				throw UnexpectedCharacter((char)_textReader.Read());
 
 			return result;
 		}
 
 		private char ReadAndExpect(char expect)
 		{
-			var read = _reader.Read();
+			var read = _textReader.Read();
 
 			if (read == -1) throw UnexpectedEndOfFile();
 			if (read != expect) throw UnexpectedCharacter((char)read, expect);
@@ -143,24 +141,32 @@ namespace VMFDotNET.ObjectNotation
 		{
 			while (true)
 			{
-				var peek = _reader.Peek();
+				var peek = _textReader.Peek();
 				if (peek == -1) break;
 				if (!char.IsWhiteSpace((char)peek)) break;
-				_reader.Read();
+				_textReader.Read();
 			}
 		}
 
-		private static Exception UnexpectedCharacter(char character) => ReaderException($"Unexpected character '{character}'");
+		private Exception UnexpectedCharacter(char character) => ReaderException($"Unexpected character '{character}'");
 
-		private static Exception UnexpectedCharacter(char character, char expected) => ReaderException($"Unexpected character '{character}' expected '{expected}'");
+		private Exception UnexpectedCharacter(char character, char expected) => ReaderException($"Unexpected character '{character}' expected '{expected}'");
 
-		private static Exception UnexpectedEndOfFile() => ReaderException("Unexpected end of file");
+		private Exception UnexpectedEndOfFile() => ReaderException("Unexpected end of file");
 
-		private static Exception ReaderException(string message) => new InvalidOperationException(message);
+		private Exception ReaderException(string message)
+		{
+			return new InvalidOperationException($"{message} at {GetLocationString()}");
+		}
 		
+		private string GetLocationString()
+		{
+			return $"(line: {_textReader.LineNumber} character: {_textReader.CharacterNumber})";
+		}
+
 		public void Dispose()
 		{
-			_reader.Dispose();
+			_textReader.Dispose();
 		}
 	}
 }
