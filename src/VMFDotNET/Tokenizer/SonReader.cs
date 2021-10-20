@@ -7,11 +7,37 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace VMFDotNET.ObjectNotation
+namespace VMFDotNET.Tokenizer
 {
 	public sealed class SonReader : IDisposable
 	{
 		public string Value { get; private set; }
+
+		private readonly Dictionary<SonNodeType, Func<SonNodeType, bool>> _nodeOrdering = new()
+		{
+			[SonNodeType.DocumentStart] = (to) => to == SonNodeType.ObjectHeader,
+			[SonNodeType.PropertyName] = (to) => to == SonNodeType.PropertyValue,
+			[SonNodeType.ObjectHeader] = (to) => to == SonNodeType.ObjectStart,
+
+			[SonNodeType.PropertyValue] = (to) => new[] {
+				SonNodeType.PropertyName,
+				SonNodeType.ObjectHeader,
+				SonNodeType.ObjectEnd
+				}.Contains(to),
+
+			[SonNodeType.ObjectStart] = (to) => new[] { 
+				SonNodeType.PropertyName,
+				SonNodeType.ObjectHeader,
+				SonNodeType.ObjectEnd
+				}.Contains(to),
+
+			[SonNodeType.ObjectEnd] = (to) => new[] {
+				SonNodeType.PropertyName,
+				SonNodeType.ObjectHeader,
+				SonNodeType.ObjectEnd
+				}.Contains(to),
+		};
+
 		private SonNodeType? _lastNodeType;
 		private readonly TrackedTextReader _textReader;
 
@@ -29,6 +55,7 @@ namespace VMFDotNET.ObjectNotation
 		{
 			SkipWhiteSpace();
 			var next = GetNextExpectedNodeType();
+			CheckNodeOrdering(next);
 
 			switch (next)
 			{
@@ -43,6 +70,17 @@ namespace VMFDotNET.ObjectNotation
 
 			_lastNodeType = next;
 			return next;
+		}
+
+		private void CheckNodeOrdering(SonNodeType next)
+		{
+			if (next == SonNodeType.DocumentEnd)
+				return;
+
+			if (_lastNodeType.HasValue && !_nodeOrdering[_lastNodeType.Value](next))
+			{
+				throw UnexpectedCharacter((char)_textReader.Read());
+			}
 		}
 
 		private SonNodeType GetNextExpectedNodeType()
@@ -156,14 +194,9 @@ namespace VMFDotNET.ObjectNotation
 
 		private Exception ReaderException(string message)
 		{
-			return new InvalidOperationException($"{message} at {GetLocationString()}");
+			return new SonReaderException(_textReader, message);
 		}
 		
-		private string GetLocationString()
-		{
-			return $"(line: {_textReader.LineNumber} character: {_textReader.CharacterNumber})";
-		}
-
 		public void Dispose()
 		{
 			_textReader.Dispose();

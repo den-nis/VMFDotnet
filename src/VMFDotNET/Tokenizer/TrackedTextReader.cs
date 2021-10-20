@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace VMFDotNET.ObjectNotation
+namespace VMFDotNET.Tokenizer
 {
 	internal sealed class TrackedTextReader : IDisposable
 	{
