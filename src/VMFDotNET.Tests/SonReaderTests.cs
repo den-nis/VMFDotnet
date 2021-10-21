@@ -57,8 +57,10 @@ namespace VMFDotNET.Tests
 		{
 			for (int i = 0; i < READ_UNTIL_LIMIT; i++)
 			{
-				if (reader.Read() == type)
+				if (reader.Read() && reader.NodeType == type)
+				{
 					return;
+				}
 			}
 		}
 	}
