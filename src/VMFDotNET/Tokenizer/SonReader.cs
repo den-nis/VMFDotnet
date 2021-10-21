@@ -1,21 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace VMFDotNET.Tokenizer
 {
 	public sealed class SonReader : IDisposable
 	{
+		public int Depth { get; private set; }
 		public string Value { get; private set; }
+		public SonNodeType NodeType { get; private set; }
 
 		private readonly Dictionary<SonNodeType, Func<SonNodeType, bool>> _nodeOrdering = new()
 		{
-			[SonNodeType.DocumentStart] = (to) => to == SonNodeType.ObjectHeader,
 			[SonNodeType.PropertyName] = (to) => to == SonNodeType.PropertyValue,
 			[SonNodeType.ObjectHeader] = (to) => to == SonNodeType.ObjectStart,
 
@@ -51,9 +49,13 @@ namespace VMFDotNET.Tokenizer
 			_textReader = new TrackedTextReader(reader);
 		}
 
-		public SonNodeType Read()
+		public bool Read()
 		{
+			NodeType = SonNodeType.None;
+			Value = null;
+
 			SkipWhiteSpace();
+
 			var next = GetNextExpectedNodeType();
 			CheckNodeOrdering(next);
 
@@ -62,19 +64,31 @@ namespace VMFDotNET.Tokenizer
 				case SonNodeType.PropertyName: ReadPropertyPart(); break;
 				case SonNodeType.PropertyValue: ReadPropertyPart(); break;
 				case SonNodeType.ObjectHeader: ReadObjectHeader(); break;
-				case SonNodeType.ObjectStart: ReadObjectStart(); break;
-				case SonNodeType.ObjectEnd: ReadObjectEnd(); break;
+
+				case SonNodeType.ObjectStart:
+					Depth++;
+					ReadObjectStart(); 
+					break;
+
+				case SonNodeType.ObjectEnd:
+					if (--Depth < 0) throw UnexpectedCharacter('}');
+					ReadObjectEnd(); 
+					break;
+
+				case SonNodeType.None:
+					return false;
 
 				default: break;
 			}
 
 			_lastNodeType = next;
-			return next;
+			NodeType = next;
+			return true;
 		}
 
 		private void CheckNodeOrdering(SonNodeType next)
 		{
-			if (next == SonNodeType.DocumentEnd)
+			if (next == SonNodeType.None)
 				return;
 
 			if (_lastNodeType.HasValue && !_nodeOrdering[_lastNodeType.Value](next))
@@ -85,14 +99,13 @@ namespace VMFDotNET.Tokenizer
 
 		private SonNodeType GetNextExpectedNodeType()
 		{
-			if (_lastNodeType == null) return SonNodeType.DocumentStart;
-			if (_lastNodeType == SonNodeType.DocumentStart) return SonNodeType.ObjectHeader;
+			if (_lastNodeType == null) return SonNodeType.ObjectHeader;
 			if (_lastNodeType == SonNodeType.PropertyName) return SonNodeType.PropertyValue;
 			if (_lastNodeType == SonNodeType.ObjectHeader) return SonNodeType.ObjectStart;
 
 			int peek = _textReader.Peek();
 
-			if (peek == -1)   return SonNodeType.DocumentEnd;
+			if (peek == -1)   return SonNodeType.None;
 			if (peek == '\"') return SonNodeType.PropertyName;
 			if (peek == '{')  return SonNodeType.ObjectStart;
 			if (peek == '}')  return SonNodeType.ObjectEnd;
