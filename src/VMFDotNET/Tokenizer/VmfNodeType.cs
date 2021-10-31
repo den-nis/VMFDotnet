@@ -1,6 +1,6 @@
 ﻿namespace VMFDotNET.Tokenizer
 {
-	public enum SonNodeType
+	public enum VmfNodeType
 	{
 		None,
 		ObjectHeader,

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace VMFDotNET.Tokenizer
 {
-	public class SonReaderException : Exception
+	public class VmfReaderException : Exception
 	{
 		public int LineNumber { get; private set; } = 1;
 		public int CharacterNumber { get; private set; } = 1;
@@ -14,7 +14,7 @@ namespace VMFDotNET.Tokenizer
 
 		private readonly string _message;
 		
-		internal SonReaderException(TrackedTextReader reader, string message)
+		internal VmfReaderException(TrackedTextReader reader, string message)
 		{
 			LineNumber = reader.LineNumber;
 			CharacterNumber = reader.CharacterNumber;

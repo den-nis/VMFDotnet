@@ -6,52 +6,52 @@ using System.Text;
 
 namespace VMFDotNET.Tokenizer
 {
-	public sealed class SonReader : IDisposable
+	public sealed class VmfReader : IDisposable
 	{
 		public int Depth { get; private set; }
 		public string Value { get; private set; }
-		public SonNodeType NodeType { get; private set; }
+		public VmfNodeType NodeType { get; private set; }
 
-		private readonly Dictionary<SonNodeType, Func<SonNodeType, bool>> _nodeOrdering = new()
+		private readonly Dictionary<VmfNodeType, Func<VmfNodeType, bool>> _nodeOrdering = new()
 		{
-			[SonNodeType.PropertyName] = (to) => to == SonNodeType.PropertyValue,
-			[SonNodeType.ObjectHeader] = (to) => to == SonNodeType.ObjectStart,
+			[VmfNodeType.PropertyName] = (to) => to == VmfNodeType.PropertyValue,
+			[VmfNodeType.ObjectHeader] = (to) => to == VmfNodeType.ObjectStart,
 
-			[SonNodeType.PropertyValue] = (to) => new[] {
-				SonNodeType.PropertyName,
-				SonNodeType.ObjectHeader,
-				SonNodeType.ObjectEnd
+			[VmfNodeType.PropertyValue] = (to) => new[] {
+				VmfNodeType.PropertyName,
+				VmfNodeType.ObjectHeader,
+				VmfNodeType.ObjectEnd
 				}.Contains(to),
 
-			[SonNodeType.ObjectStart] = (to) => new[] { 
-				SonNodeType.PropertyName,
-				SonNodeType.ObjectHeader,
-				SonNodeType.ObjectEnd
+			[VmfNodeType.ObjectStart] = (to) => new[] { 
+				VmfNodeType.PropertyName,
+				VmfNodeType.ObjectHeader,
+				VmfNodeType.ObjectEnd
 				}.Contains(to),
 
-			[SonNodeType.ObjectEnd] = (to) => new[] {
-				SonNodeType.PropertyName,
-				SonNodeType.ObjectHeader,
-				SonNodeType.ObjectEnd
+			[VmfNodeType.ObjectEnd] = (to) => new[] {
+				VmfNodeType.PropertyName,
+				VmfNodeType.ObjectHeader,
+				VmfNodeType.ObjectEnd
 				}.Contains(to),
 		};
 
-		private SonNodeType? _lastNodeType;
+		private VmfNodeType? _lastNodeType;
 		private readonly TrackedTextReader _textReader;
 
-		public SonReader(Stream reader)
+		public VmfReader(Stream reader)
 		{
 			_textReader = new TrackedTextReader(new StreamReader(reader));
 		}
 
-		public SonReader(TextReader reader)
+		public VmfReader(TextReader reader)
 		{
 			_textReader = new TrackedTextReader(reader);
 		}
 
 		public bool Read()
 		{
-			NodeType = SonNodeType.None;
+			NodeType = VmfNodeType.None;
 			Value = null;
 
 			SkipWhiteSpace();
@@ -61,21 +61,21 @@ namespace VMFDotNET.Tokenizer
 
 			switch (next)
 			{
-				case SonNodeType.PropertyName: ReadPropertyPart(); break;
-				case SonNodeType.PropertyValue: ReadPropertyPart(); break;
-				case SonNodeType.ObjectHeader: ReadObjectHeader(); break;
+				case VmfNodeType.PropertyName: ReadPropertyPart(); break;
+				case VmfNodeType.PropertyValue: ReadPropertyPart(); break;
+				case VmfNodeType.ObjectHeader: ReadObjectHeader(); break;
 
-				case SonNodeType.ObjectStart:
+				case VmfNodeType.ObjectStart:
 					Depth++;
 					ReadObjectStart(); 
 					break;
 
-				case SonNodeType.ObjectEnd:
+				case VmfNodeType.ObjectEnd:
 					if (--Depth < 0) throw UnexpectedCharacter('}');
 					ReadObjectEnd(); 
 					break;
 
-				case SonNodeType.None:
+				case VmfNodeType.None:
 					return false;
 
 				default: break;
@@ -86,9 +86,9 @@ namespace VMFDotNET.Tokenizer
 			return true;
 		}
 
-		private void CheckNodeOrdering(SonNodeType next)
+		private void CheckNodeOrdering(VmfNodeType next)
 		{
-			if (next == SonNodeType.None)
+			if (next == VmfNodeType.None)
 				return;
 
 			if (_lastNodeType.HasValue && !_nodeOrdering[_lastNodeType.Value](next))
@@ -97,20 +97,20 @@ namespace VMFDotNET.Tokenizer
 			}
 		}
 
-		private SonNodeType GetNextExpectedNodeType()
+		private VmfNodeType GetNextExpectedNodeType()
 		{
-			if (_lastNodeType == null) return SonNodeType.ObjectHeader;
-			if (_lastNodeType == SonNodeType.PropertyName) return SonNodeType.PropertyValue;
-			if (_lastNodeType == SonNodeType.ObjectHeader) return SonNodeType.ObjectStart;
+			if (_lastNodeType == null) return VmfNodeType.ObjectHeader;
+			if (_lastNodeType == VmfNodeType.PropertyName) return VmfNodeType.PropertyValue;
+			if (_lastNodeType == VmfNodeType.ObjectHeader) return VmfNodeType.ObjectStart;
 
 			int peek = _textReader.Peek();
 
-			if (peek == -1)   return SonNodeType.None;
-			if (peek == '\"') return SonNodeType.PropertyName;
-			if (peek == '{')  return SonNodeType.ObjectStart;
-			if (peek == '}')  return SonNodeType.ObjectEnd;
+			if (peek == -1)   return VmfNodeType.None;
+			if (peek == '\"') return VmfNodeType.PropertyName;
+			if (peek == '{')  return VmfNodeType.ObjectStart;
+			if (peek == '}')  return VmfNodeType.ObjectEnd;
 
-			if (_lastNodeType != SonNodeType.ObjectHeader) return SonNodeType.ObjectHeader;
+			if (_lastNodeType != VmfNodeType.ObjectHeader) return VmfNodeType.ObjectHeader;
 
 			throw UnexpectedCharacter((char)_textReader.Read());
 		}
@@ -207,7 +207,7 @@ namespace VMFDotNET.Tokenizer
 
 		private Exception ReaderException(string message)
 		{
-			return new SonReaderException(_textReader, message);
+			return new VmfReaderException(_textReader, message);
 		}
 		
 		public void Dispose()

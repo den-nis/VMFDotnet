@@ -4,27 +4,27 @@ using VMFDotNET.Tokenizer;
 
 namespace VMFDotNET.Linq
 {
-	public static class SonParser
+	public static class VmfParser
 	{
-		public static SonObject Parse(string input)
+		public static VmfObject Parse(string input)
 		{
-			SonReader reader = new(new StringReader(input));
-			SonObject current = new();
+			VmfReader reader = new(new StringReader(input));
+			VmfObject current = new();
 			string propertyName = null;
 
 			while (reader.Read())
 			{
 				switch (reader.NodeType)
 				{
-					case SonNodeType.ObjectEnd:
+					case VmfNodeType.ObjectEnd:
 						if (current.Parent == null)
 							return current;
 
 						current = current.Parent;
 						break;
 
-					case SonNodeType.ObjectHeader:
-						var child = new SonObject
+					case VmfNodeType.ObjectHeader:
+						var child = new VmfObject
 						{
 							Parent = current,
 							Name = reader.Value
@@ -34,11 +34,11 @@ namespace VMFDotNET.Linq
 						current = child;
 						break;
 
-					case SonNodeType.PropertyName:
+					case VmfNodeType.PropertyName:
 						propertyName = reader.Value;
 						break;
 
-					case SonNodeType.PropertyValue:
+					case VmfNodeType.PropertyValue:
 						current.AddProperty(propertyName, reader.Value);
 						propertyName = null;
 						break;
@@ -47,14 +47,14 @@ namespace VMFDotNET.Linq
 			return current;
 		}
 
-		public static string ConvertToString(SonObject obj)
+		public static string ConvertToString(VmfObject obj)
 		{
 			StringBuilder builder = new();
 			WriteBlock(builder, obj, 0);
 			return builder.ToString();
 		}
 
-		private static void WriteBlockWithBrackets(StringBuilder sb, SonObject obj, int indentLevel)
+		private static void WriteBlockWithBrackets(StringBuilder sb, VmfObject obj, int indentLevel)
 		{
 			string indent = new('\t', indentLevel);
 			sb.AppendLine($"{indent}{obj.Name}");
@@ -63,13 +63,13 @@ namespace VMFDotNET.Linq
 			sb.AppendLine($"{indent}}}");
 		}
 
-		private static void WriteBlock(StringBuilder sb, SonObject obj, int indentLevel)
+		private static void WriteBlock(StringBuilder sb, VmfObject obj, int indentLevel)
 		{
 			WriteProperties(sb, obj, indentLevel);
 			WriteChildren(sb, obj, indentLevel);
 		}
 
-		private static void WriteChildren(StringBuilder builder, SonObject obj, int indentLevel)
+		private static void WriteChildren(StringBuilder builder, VmfObject obj, int indentLevel)
 		{
 			foreach (var child in obj.Children)
 			{
@@ -77,7 +77,7 @@ namespace VMFDotNET.Linq
 			}
 		}
 
-		private static void WriteProperties(StringBuilder builder, SonObject obj, int indentLevel)
+		private static void WriteProperties(StringBuilder builder, VmfObject obj, int indentLevel)
 		{
 			string indent = new('\t', indentLevel);
 			foreach (var property in obj.Properties)

@@ -9,14 +9,14 @@ using VMFDotNET.Linq;
 namespace VMFDotNET.Tests
 {
 	[TestClass]
-	public class SonParserTests
+	public class VmfParserTests
 	{
 		[TestMethod]
 		public void When_Parse_Expect_ParsedObjects()
 		{
 			string input = "headerOne{\"name\"\"value\"}headerTwo{\"name\"\"value\"}";
 
-			SonObject obj = SonParser.Parse(input);
+			VmfObject obj = VmfParser.Parse(input);
 
 			Assert.IsTrue(obj.Children.Any(c => c.Name == "headerOne"));
 			Assert.IsTrue(obj.Children.Any(c => c.Name == "headerTwo"));
@@ -28,7 +28,7 @@ namespace VMFDotNET.Tests
 		{
 			string input = "headerOne{\"name\"\"value\"}";
 
-			SonObject obj = SonParser.Parse(input).Children.First();
+			VmfObject obj = VmfParser.Parse(input).Children.First();
 
 			Assert.AreEqual("value", obj.GetValue("name"));
 		}

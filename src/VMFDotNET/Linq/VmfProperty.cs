@@ -1,6 +1,6 @@
 ﻿namespace VMFDotNET.Linq
 {
-	public record SonProperty
+	public record VmfProperty
 	{
 		public string Name { get; init; }
 		public string Value { get; init; }
